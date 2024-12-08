@@ -13,13 +13,11 @@ import datetime as dt
 # Create engine to hawaii.sqlite
 engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 
-
 # Reflect an existing database into a new model
 Base = automap_base()
 
 # reflect the tables
 Base.prepare(autoload_with=engine)
-
 
 # Save references to each table
 Measurement = Base.classes.measurement
@@ -48,7 +46,7 @@ def home():
                 <li>/api/v1.0/stations</li>
                 <li>/api/v1.0/tobs</li>
                 <li>/api/v1.0/startdate <strong>(in YYYY-MM-DD format)</strong></li>
-                <li>/api/v1.0/startenddate <strong>(in YYYY-MM-DD/YYYY-MM-DD format)</strong></li>
+                <li>/api/v1.0/startdate/enddate <strong>(in YYYY-MM-DD/YYYY-MM-DD format)</strong></li>
               </ul>'''
 
 ###################################################################################################################
@@ -59,25 +57,25 @@ def home():
 #Return the JSON representation of your dictionary. 
 ###################################################################################################################
 
-
 @app.route('/api/v1.0/precipitation')
 def precipitation():
     session = Session(engine)
 
-
-    # Calculate the date one year ago
-    most_recent_date = session.query(func.max(Measurement.date)).scalar()
-    most_recent_date = dt.datetime.strptime(most_recent_date, '%Y-%m-%d')
-    one_year_ago = most_recent_date - dt.timedelta(days=365)
+    # Calculate the date one year ago and store it to be displayed later
+    one_year_ago = dt.date(2017, 8, 23) - dt.timedelta(days=365)
+    prev_date = dt.date(one_year_ago.year, one_year_ago.month, one_year_ago.day)
+    results = (
+    session.query(Measurement.date, Measurement.prcp)
+    .filter(Measurement.date >= prev_date)
+    .order_by(Measurement.date.desc())
+    .all()
+)
 
     # Query the last 12 months of precipitation data
-    results = session.query(Measurement.date, Measurement.prcp).\
-        filter(Measurement.date >= one_year_ago).all()
-
     session.close()
 
-    # Create a dictionary from the query results
-    precipitation_dict = {date: prcp for date, prcp in results}
+    # Create a dictionary from the query results and drop null values
+    precipitation_dict = {date: prcp for date, prcp in results if prcp is not None}
 
     return jsonify(precipitation_dict)
 
@@ -90,20 +88,24 @@ def precipitation():
 @app.route('/api/v1.0/stations')
 def stations():
     session = Session(engine)
+    display = [Station.name,Station.station,]
 
-    # Query all stations
-    results = session.query(Station.station).all()
-
+    # Query the desired information
+    results = session.query(*display).all()
     session.close()
 
-    # Create a list of stations
-    stations_list = [station[0] for station in results]
+    # Display the desired information
+    stations = []
+    for station,name in results:
+        station_dict = {}
+        station_dict["Station"] = station
+        station_dict["Name"] = name
+        stations.append(station_dict)
 
-    return jsonify(stations_list)
-
+    return jsonify(stations)
 
 ###################################################################################################################
-#                                                TABS
+#                                                TOBS
 #
 # Query the dates and temperature observations of the most-active station for the previous year of data.
 # Return a JSON list of temperature observations for the previous year.
@@ -115,25 +117,24 @@ def tobs():
     session = Session(engine)
 
     # Find the most recent date in the Measurement table
-    most_recent_date = session.query(func.max(Measurement.date)).scalar()
-    most_recent_date = dt.datetime.strptime(most_recent_date, '%Y-%m-%d')
-
-    # Calculate the date one year ago
-    one_year_ago = most_recent_date - dt.timedelta(days=365)
-
-    # Query the last 12 months of temperature observation data for the most active station
-    most_active_station_id = 'USC00519281'  # Replace with dynamic retrieval if needed
-    results = session.query(Measurement.tobs).\
-        filter(Measurement.station == most_active_station_id).\
-        filter(Measurement.date >= one_year_ago).all()
+    result_tob = (
+    session.query(Measurement.date, Measurement.tobs)
+    .filter(Measurement.station == 'USC00519281')
+    .filter(Measurement.date >= '2016-08-23')
+    .all()
+)
 
     session.close()
 
-    # Create a list of temperature observations
-    tobs_list = [temp[0] for temp in results]
-
-    return jsonify(tobs_list)
-
+    # Initialize an empty list to store the temperature observation data 
+    tob_list = []
+    for date, tobs in result_tob:
+         tobs_dictionary = {}
+         tobs_dictionary["Date"] = date
+         tobs_dictionary["Tobs"] = tobs
+         tob_list.append(tobs_dictionary)
+         
+    return jsonify(tob_list)
 
 ###################################################################################################################
 #                                           <start> <start>/<end>
@@ -145,9 +146,6 @@ def tobs():
 # the end date, inclusive.
 # 
 ###################################################################################################################
-
-
-
 
 @app.route('/api/v1.0/<start>')
 def start(start):
@@ -169,7 +167,12 @@ def start(start):
         'TMAX': results[0].TMAX
     }
 
-    return jsonify(temp_data)
+    response_data = {
+        'message': f"Minimum, Average and Maximum Temperature of: {start}",
+        'data': temp_data
+    }
+
+    return jsonify(response_data)
 
 @app.route('/api/v1.0/<start>/<end>')
 def start_end(start, end):
@@ -183,6 +186,16 @@ def start_end(start, end):
     ).filter(Measurement.date >= start).filter(Measurement.date <= end).all()
 
     session.close()
+
+    temp_data = {
+        'Start Date': start,
+        'End Date': end,
+        'TMIN': results[0].TMIN,
+        'TAVG': results[0].TAVG,
+        'TMAX': results[0].TMAX
+    }
+
+    return jsonify(temp_data)
 
 if __name__ == "__main__":
     app.run(debug=True)
