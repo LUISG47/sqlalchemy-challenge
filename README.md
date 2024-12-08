@@ -72,7 +72,8 @@ The result on the browser should display as follows:
 
 ![Screenshot 2024-12-08 at 11 51 17 a m](https://github.com/user-attachments/assets/30b85936-f932-413d-a95b-d65fda73868b)
 
-5. /api/v1.0/<start> and /api/v1.0/<start>/<end>
+5. /api/v1.0/start and /api/v1.0/start/end
+
 + Return a JSON list of the minimum temperature, the average temperature, and the maximum temperature for a specified start or start-end range.
 + For a specified start, calculate TMIN, TAVG, and TMAX for all the dates greater than or equal to the start date.
 
