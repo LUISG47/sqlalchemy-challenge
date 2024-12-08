@@ -35,7 +35,7 @@ The CSV that you will be using are located on the **Resources** folder, make sur
 
 ![Screenshot 2024-12-08 at 11 55 03 a m](https://github.com/user-attachments/assets/c40d2a3c-aeb5-4552-a24d-61f763f621c1)
 
-## Part 1: Analyze and Explore the Climate Data
+## Part 2: Design Your Climate App
 
 Now that you’ve completed your initial analysis, you’ll design a Flask API based on the queries that you just developed. To do so, use Flask to create your routes as follows, 
 We recommend using **FIREFOX** for the display of the web app
